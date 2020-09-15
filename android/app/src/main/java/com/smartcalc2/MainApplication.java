@@ -4,6 +4,8 @@ import android.app.Application;
 import android.content.Context;
 import com.facebook.react.PackageList;
 import com.facebook.react.ReactApplication;
+import com.reactnativecommunity.asyncstorage.AsyncStoragePackage;
+import org.devio.rn.splashscreen.SplashScreenReactPackage;
 import com.oblador.vectoricons.VectorIconsPackage;
 import com.wenkesj.voice.VoicePackage;
 import com.facebook.react.ReactInstanceManager;
@@ -12,6 +14,9 @@ import com.facebook.react.ReactPackage;
 import com.facebook.soloader.SoLoader;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
+
+
+
 
 public class MainApplication extends Application implements ReactApplication {
 
@@ -44,6 +49,8 @@ public class MainApplication extends Application implements ReactApplication {
 
   @Override
   public void onCreate() {
+
+
     super.onCreate();
     SoLoader.init(this, /* native exopackage */ false);
     initializeFlipper(this, getReactNativeHost().getReactInstanceManager());

@@ -27,8 +27,6 @@ const  precedence = (op1, op2) => {
   }
 
 const  applyOperator = (operators, values, rootPriority) => {
-    console.log(values)
-    console.log(operators)
     let operator = operators.pop()
     if (operator==='\u221A') {
       const priority = peek(rootPriority)
@@ -59,7 +57,6 @@ const  applyOperator = (operators, values, rootPriority) => {
     } else if (operator==='/') {
       values.push(left/right)
     } else if (operator==='%') {
-      console.log({'a':left=='-1', 'b': peek(operators)==='*','c':operators[operators.length-2]==='+'})
       if (peek(operators)==='+'){
         operators.pop()
         values.push(left*(1+right/100))
@@ -76,24 +73,22 @@ const  applyOperator = (operators, values, rootPriority) => {
          
     } 
   }
-  console.log(values)
-  console.log(operators)
   }
 
 const evaluate = (expression) => {  
   if (expression.length>0) {
     const re = /[+/*()-]|[0-9]*\.?[0-9]+|\u221A|\u00B2|%/g
     let tokens = expression.match(re)
-    console.log(tokens)
+
     if (tokens[0]==='-') {
         tokens = tokens.slice(1,tokens.length)
         tokens[0]='-'+tokens[0]
     }
-    console.log(tokens)
+
     if (tokens[tokens.length-1].match(/\+|\*|\/|-|\u221A|\.$/)){
         tokens=tokens.slice(0,-1)
     }
-    console.log(tokens)
+
     const operators=[]
     const values = []
     const rootPriority=[]
@@ -106,9 +101,8 @@ const evaluate = (expression) => {
       }
       j=j+1
     }
-    console.log(tokens)
+
     tokens.forEach((token,i) => {
-        console.log(token)
         if (tokens[i+1]==='%' && tokens[i+2] && (tokens[i+2]==='*'||tokens[i+2]==='/'||tokens[i+2]==='\u221A')){
             tokens.splice(i+1,1)
             token=String(parseFloat(token)/100)
@@ -140,8 +134,6 @@ const evaluate = (expression) => {
             top = peek(operators)
             try {
             while (top && top!=='(' && top!==')' && precedence(top,token)){
-                console.log('hello'+operators)
-                console.log('hello'+values)
                 applyOperator(operators,values, rootPriority)
                 top = peek(operators)
             } } catch {

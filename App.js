@@ -1,5 +1,3 @@
-
-
 import React from 'react';
 import { StyleSheet, Text, View, Switch, TouchableOpacity, Alert} from 'react-native';
 import { Icon } from 'react-native-elements'
@@ -8,6 +6,8 @@ import { Neomorph } from 'react-native-neomorph-shadows';
 import LinearGradient from 'react-native-linear-gradient';
 import evaluate from './evaluation';
 import Modal from 'react-native-modal';
+import SplashScreen from 'react-native-splash-screen';
+import AsyncStorage from '@react-native-community/async-storage';
 
 class App extends React.Component {
   constructor() {
@@ -27,13 +27,38 @@ class App extends React.Component {
 
 
   }
-  componentDidMount() {
-    // Audio.getPermissionsAsync().then(res  => {
-    //   res.granted? this.setState({recordingPermission: true}) : 
-    //   Audio.requestPermissionsAsync().then(res => res.granted ? this.setState({recordingPermission: true}): null).catch(err => console.log(err.message)) 
-    // }).catch(err => console.log(`main: ${err.message} `))
-
+  retrieveThemeFromStorage = async () => {
+    try {
+      const theme = await AsyncStorage.getItem('smartCalcThemeSetting')
+      if (theme==='true') {
+        this.setState({darkTheme: true})
+      } else if (theme==='false') {
+        this.setState({darkTheme:false})
+      }
+    } catch (err) {
+      console.log('Error retrieving data', err)
+    }
   }
+  retrieveLanguageFromStorage = async () => {
+    try {
+      const language = await AsyncStorage.getItem('smartCalcLanguageSetting')
+      if (language) {
+        this.setState({language: language})
+      } 
+    } catch (err) {
+      console.log('Error retrieving data', err)
+    }
+  }
+
+  componentDidMount() {
+    this.retrieveLanguageFromStorage();
+    this.retrieveThemeFromStorage();
+    setTimeout(() => {
+      SplashScreen.hide();  
+    }, 100);
+    
+  }
+ 
   shouldComponentUpdate(nextProps, nextState) {
     if (this.state===nextState) {
     return false }
@@ -45,7 +70,9 @@ class App extends React.Component {
   }
 
   onChangeTheme = () => {
+      this.storeData('smartCalcThemeSetting',`${!this.state.darkTheme}`)
       this.setState({darkTheme: !this.state.darkTheme})  
+      
   }
 
 
@@ -60,6 +87,9 @@ class App extends React.Component {
       str = str.replace(/скобка открывается/g,'(')
       str = str.replace(/скобка закрывается/g,')')
       str = str.replace(/плюс/g,'+')
+      str = str.replace(/минус/g,'-')
+      str = str.replace(/два/g,'2')
+
     } else {
       str = str.replace(/square root from|squared root of|squared root from|root of|root from|square root of/g,'\u221A')
       str = str.replace(/squared|to the power of two|\^ 2/g,'\u00B2')
@@ -67,12 +97,19 @@ class App extends React.Component {
       str = str.replace(/closing bracket|close bracket/g,')')
     }
     str = str.replace(/of|от/g,'*')   
-
+    if (str.match(/равно|equal|=/)) {
+        str = str.replace(/равно|equal|equals|=/g,'')
+        this.setState({
+          results:e.value,
+          displayString: this.state.displayString+str
+        },() => this.calculateExpression())
+    } else{
     this.setState({
       results: e.value,
       displayString: this.state.displayString+str
 
     });
+  }
   }
 
   }
@@ -84,7 +121,7 @@ class App extends React.Component {
     try {
       await Voice.start(`${this.state.language}`);
     } catch (e) {
-      console.error(e);
+      Alert.alert(language==='en-US'?'Recognition Error':'Ошибка распознавания', language==='en-US'?'Your device does not support this language':'Ваше устроиство не поддерживает распознавание речи на этом языке!')
     }
   }
 
@@ -126,9 +163,22 @@ class App extends React.Component {
       this.setState({displayString: displayString+symbol})
     }
   }
+  storeData = async (name,value) => {
+    try {
+      await AsyncStorage.setItem(
+        name,
+        value
+      )
+    } catch(err) {
+      console.log('Error saving Data', err)
+    }
+  }
 
   onChangeLanguage = () => {
+    this.storeData('smartCalcLanguageSetting',this.state.language==='ru-RU'?'en-US':'ru-RU' )
     this.setState({language: this.state.language==='ru-RU'?'en-US':'ru-RU'})
+    
+    
   }
 
   toggleMenu = () => {
@@ -156,14 +206,14 @@ class App extends React.Component {
     const { recordingPermission, query, displayString, darkTheme, language, menuHidden } = this.state
     return (
 
-      <View style={styles.container}
+      <View style={darkTheme?darkStyles.container:styles.container}
       > 
           <View style={styles.optionsContainer}>
             <TouchableOpacity 
             style={styles.optionsOpacity}
             onPress={this.toggleMenu}
             >
-              <Text style={styles.optionsButton}>&#8230;</Text>
+              <Text style={darkTheme?darkStyles.optionsButton:styles.optionsButton}>&#8230;</Text>
             </TouchableOpacity>
             <Modal
             isVisible={!menuHidden}
@@ -180,9 +230,9 @@ class App extends React.Component {
               style={styles.optionsMenu}
               >       
                 <View style={{flex:1}}>
-                  <Text style={{fontSize:20, marginBottom:10}}>{language==='ru-RU'?'Настройки:':'Settings:'}</Text>
+                  <Text style={{fontSize:20, marginBottom:10}}>{'Settings:'}</Text>
                   <View style={styles.languageChoice}>
-                    <Text style={styles.language}>{language==='en-US'?'Language: ':'Язык: '}</Text> 
+                    <Text style={styles.language}>{'Language: '}</Text> 
                     <TouchableOpacity
                     onPress={this.onChangeLanguage}
                     >
@@ -201,7 +251,7 @@ class App extends React.Component {
           </Modal>
           </View>
           <View style={styles.display}>
-              <Text style={styles.displayText}>{displayString}</Text>
+              <Text style={darkTheme?darkStyles.displayText:styles.displayText}>{displayString}</Text>
           </View>
           <View style={styles.buttonContainer}>
             <View style={styles.Row}>
@@ -213,17 +263,17 @@ class App extends React.Component {
                 thumbColor='#fdb82d'
                 trackColor={{false:'grey', true: 'grey'}}
                 />
-                <Text style={{opacity: 0.3}}>{!darkTheme?'Switch to Dark theme': 'Switch to Light theme'}</Text>
+                <Text style={darkTheme?{opacity: 0.7, color:'white'}:{opacity: 0.3}}>{!darkTheme?'Switch to Dark theme': 'Switch to Light theme'}</Text>
               </View>
               <Neomorph
                 lightShadowColor='white'
-                darkShadowColor='#181818'
-                style={ styles.calculatorShadow}>
-                <TouchableOpacity
-                style={styles.calculatorButtons}
+                darkShadowColor='black'
+                style={darkTheme? darkStyles.calculatorShadow: styles.calculatorShadow}>
+                  <TouchableOpacity
+                  style={darkTheme? darkStyles.calculatorButtons:styles.calculatorButtons}
                 onPress={this.startRecognition.bind(this)}
                 >
-                  <Icon name='settings-voice'/>
+                  <Icon name='settings-voice' color={darkTheme?'rgba(255,255,255,0.7)':'black'}/>
                 </TouchableOpacity>
 
               </Neomorph>
@@ -234,11 +284,12 @@ class App extends React.Component {
               darkShadowColor='#fdb82c'
               style={
                 {
-                  shadowRadius: 4,
+                  shadowRadius: 2,
                   borderRadius: 32,
                   backgroundColor: '#fbc75d',
                   width:75,
                   height:65,
+                  shadowOpacity:0.2
                 }                
               }>
                 <TouchableOpacity
@@ -250,174 +301,174 @@ class App extends React.Component {
               </Neomorph>
               <Neomorph
               lightShadowColor='white'
-              darkShadowColor='#fdb82c'
-              style={styles.functionsShadow}>
+              darkShadowColor={`${darkTheme?'black':'#fdb82c'}`}
+              style={darkTheme?darkStyles.functionsShadow:styles.functionsShadow}>
                 <TouchableOpacity
-                style={styles.functionButtons}
+                style={darkTheme?darkStyles.functionButtons:styles.functionButtons}
                 onPress={() => this.addSymbol('(')}
                 >
-                  <Text style={styles.buttonText}>(</Text>
+                  <Text style={darkTheme?darkStyles.buttonText:styles.buttonText}>(</Text>
                 </TouchableOpacity>
               </Neomorph>
               <Neomorph
               lightShadowColor='white'
-              darkShadowColor='#fdb82c'
-              style={styles.functionsShadow}>
+              darkShadowColor={`${darkTheme?'black':'#fdb82c'}`}
+              style={darkTheme?darkStyles.functionsShadow:styles.functionsShadow}>
                 <TouchableOpacity
-                style={styles.functionButtons}
+                style={darkTheme?darkStyles.functionButtons:styles.functionButtons}
                 onPress={() => this.addSymbol(')')}
                 >
-                  <Text style={styles.buttonText}>)</Text>
+                  <Text style={darkTheme?darkStyles.buttonText:styles.buttonText}>)</Text>
                 </TouchableOpacity>
               </Neomorph>
               <Neomorph
               lightShadowColor='white'
-              darkShadowColor='#9a2bf1'
-              style={ styles.operationsShadow}>
+              darkShadowColor={`${darkTheme?'black':'#9a2bf1'}`}
+              style={ darkTheme?darkStyles.operationsShadow:styles.operationsShadow}>
                 <TouchableOpacity
-                style={styles.operationsButtons}
+                style={darkTheme?darkStyles.operationsButtons:styles.operationsButtons}
                 onPress={() => this.addSymbol('*')}
                 >
-                  <Text style={styles.buttonText}>&#xd7;</Text>
+                  <Text style={darkTheme?darkStyles.buttonText:styles.buttonText}>&#xd7;</Text>
                 </TouchableOpacity>
               </Neomorph>
             </View>
             <View style={styles.Row}>
               <Neomorph
                 lightShadowColor='white'
-                darkShadowColor='#fdb82c'
-                style={styles.functionsShadow}>
+                darkShadowColor={`${darkTheme?'black':'#fdb82c'}`}
+                style={darkTheme?darkStyles.functionsShadow:styles.functionsShadow}>
                   <TouchableOpacity
-                  style={styles.functionButtons}
+                  style={darkTheme?darkStyles.functionButtons:styles.functionButtons}
                   onPress={() => this.addSymbol(`\u221A`)}
                   >
-                    <Text style={styles.buttonText}>&#8730;</Text>
+                    <Text style={darkTheme?darkStyles.buttonText:styles.buttonText}>&#8730;</Text>
                   </TouchableOpacity>
                 </Neomorph>
                 <Neomorph
                 lightShadowColor='white'
-                darkShadowColor='#fdb82c'
-                style={styles.functionsShadow}>
+                darkShadowColor={`${darkTheme?'black':'#fdb82c'}`}
+                style={darkTheme?darkStyles.functionsShadow:styles.functionsShadow}>
                   <TouchableOpacity
-                  style={styles.functionButtons}
+                  style={darkTheme?darkStyles.functionButtons:styles.functionButtons}
                   onPress={() => this.addSymbol(`%`)}
                   >
-                    <Text style={styles.buttonText}>&#37;</Text>
+                    <Text style={darkTheme?darkStyles.buttonText:styles.buttonText}>&#37;</Text>
                   </TouchableOpacity>
                 </Neomorph>
                 <Neomorph
                 lightShadowColor='white'
-                darkShadowColor='#fdb82c'
-                style={styles.functionsShadow}>
+                darkShadowColor={`${darkTheme?'black':'#fdb82c'}`}
+                style={darkTheme?darkStyles.functionsShadow:styles.functionsShadow}>
                   <TouchableOpacity
-                  style={styles.functionButtons}
+                  style={darkTheme?darkStyles.functionButtons:styles.functionButtons}
                   onPress={() => this.addSymbol('\u00B2')}
                   >
-                    <Text style={styles.buttonText}>x&#178;</Text>
+                    <Text style={darkTheme?darkStyles.buttonText:styles.buttonText}>x&#178;</Text>
                     </TouchableOpacity>
                 </Neomorph>
                 <Neomorph
                 lightShadowColor='white'
-                darkShadowColor='#9a2bf1'
-                style={ styles.operationsShadow}>
+                darkShadowColor={`${darkTheme?'black':'#9a2bf1'}`}
+                style={ darkTheme?darkStyles.operationsShadow:styles.operationsShadow}>
                   <TouchableOpacity
-                  style={styles.operationsButtons}
+                  style={darkTheme?darkStyles.operationsButtons:styles.operationsButtons}
                   onPress={() => this.addSymbol(`/`)}
                   >
-                    <Text style={styles.buttonText}>&#xf7;</Text>
+                    <Text style={darkTheme?darkStyles.buttonText:styles.buttonText}>&#xf7;</Text>
                   </TouchableOpacity>
                 </Neomorph>
             </View>
             <View style={styles.Row}>
               <Neomorph
                 lightShadowColor='white'
-                darkShadowColor='#181818'
-                style={ styles.calculatorShadow}>
+                darkShadowColor='black'
+                style={darkTheme? darkStyles.calculatorShadow: styles.calculatorShadow}>
                   <TouchableOpacity
-                  style={styles.calculatorButtons}
+                  style={darkTheme? darkStyles.calculatorButtons:styles.calculatorButtons}
                   onPress={() => this.addSymbol('7')}
                   >
-                    <Text style={styles.buttonText}>7</Text>
+                    <Text style={darkTheme?darkStyles.buttonText:styles.buttonText}>7</Text>
                   </TouchableOpacity>
                 </Neomorph>
-              {/* <View style={styles.Row}> */}
+
                 <Neomorph
                 lightShadowColor='white'
-                darkShadowColor='#181818'
-                style={ styles.calculatorShadow}>
+                darkShadowColor='black'
+                style={darkTheme? darkStyles.calculatorShadow: styles.calculatorShadow}>
                   <TouchableOpacity
-                  style={styles.calculatorButtons}
+                  style={darkTheme? darkStyles.calculatorButtons:styles.calculatorButtons}
                   onPress={() => this.addSymbol('8')}
                   >
-                    <Text style={styles.buttonText}>8</Text>
+                    <Text style={darkTheme?darkStyles.buttonText:styles.buttonText}>8</Text>
                   </TouchableOpacity>
                 </Neomorph>
                 <Neomorph
                 lightShadowColor='white'
-                darkShadowColor='#181818'
-                style={ styles.calculatorShadow}>
+                darkShadowColor='black'
+                style={darkTheme? darkStyles.calculatorShadow: styles.calculatorShadow}>
                   <TouchableOpacity
-                  style={styles.calculatorButtons}
+                  style={darkTheme? darkStyles.calculatorButtons:styles.calculatorButtons}
                   onPress={() => this.addSymbol("9")}
                   >
-                    <Text style={styles.buttonText}>9</Text>
+                    <Text style={darkTheme?darkStyles.buttonText:styles.buttonText}>9</Text>
                   </TouchableOpacity>
                 </Neomorph>
                 <Neomorph
                 lightShadowColor='white'
-                darkShadowColor='#9a2bf1'
-                style={ styles.operationsShadow}>
+                darkShadowColor={`${darkTheme?'black':'#9a2bf1'}`}
+                style={ darkTheme?darkStyles.operationsShadow:styles.operationsShadow}>
                   <TouchableOpacity
-                  style={styles.operationsButtons}
+                  style={darkTheme?darkStyles.operationsButtons:styles.operationsButtons}
                   onPress={() => this.addSymbol(`-`)}
                   >
-                    <Text style={styles.buttonText}>-</Text>
+                    <Text style={darkTheme?darkStyles.buttonText:styles.buttonText}>-</Text>
                   </TouchableOpacity>
                 </Neomorph>
             </View>
             <View style={styles.Row}>
               <Neomorph
                 lightShadowColor='white'
-                darkShadowColor='#181818'
-                style={ styles.calculatorShadow}>
-                <TouchableOpacity
-                style={styles.calculatorButtons}
+                darkShadowColor='black'
+                style={darkTheme? darkStyles.calculatorShadow: styles.calculatorShadow}>
+                  <TouchableOpacity
+                  style={darkTheme? darkStyles.calculatorButtons:styles.calculatorButtons}
                 onPress={() => this.addSymbol("4")}
                 >
-                  <Text style={styles.buttonText}>4</Text>
+                  <Text style={darkTheme?darkStyles.buttonText:styles.buttonText}>4</Text>
                 </TouchableOpacity>
               </Neomorph>
               <Neomorph
                 lightShadowColor='white'
-                darkShadowColor='#181818'
-                style={ styles.calculatorShadow}>
-                <TouchableOpacity
-                style={styles.calculatorButtons}
+                darkShadowColor='black'
+                style={darkTheme? darkStyles.calculatorShadow: styles.calculatorShadow}>
+                  <TouchableOpacity
+                  style={darkTheme? darkStyles.calculatorButtons:styles.calculatorButtons}
                 onPress={() => this.addSymbol("5")}
                 >
-                  <Text style={styles.buttonText}>5</Text>
+                  <Text style={darkTheme?darkStyles.buttonText:styles.buttonText}>5</Text>
                 </TouchableOpacity>
               </Neomorph>
               <Neomorph
                 lightShadowColor='white'
-                darkShadowColor='#181818'
-                style={ styles.calculatorShadow}>
-                <TouchableOpacity
-                style={styles.calculatorButtons}
+                darkShadowColor='black'
+                style={darkTheme? darkStyles.calculatorShadow: styles.calculatorShadow}>
+                  <TouchableOpacity
+                  style={darkTheme? darkStyles.calculatorButtons:styles.calculatorButtons}
                 onPress={() => this.addSymbol("6")}
                 >
-                  <Text style={styles.buttonText}>6</Text>
+                  <Text style={darkTheme?darkStyles.buttonText:styles.buttonText}>6</Text>
                 </TouchableOpacity>
               </Neomorph>
               <Neomorph
                 lightShadowColor='white'
-                darkShadowColor='#9a2bf1'
-                style={ styles.operationsShadow}>
-                <TouchableOpacity
-                style={styles.operationsButtons}
+                darkShadowColor={`${darkTheme?'black':'#9a2bf1'}`}
+                style={ darkTheme?darkStyles.operationsShadow:styles.operationsShadow}>
+                  <TouchableOpacity
+                  style={darkTheme?darkStyles.operationsButtons:styles.operationsButtons}
                 onPress={() => this.addSymbol('+')}
                 >
-                  <Text style={styles.buttonText}>+</Text>
+                  <Text style={darkTheme?darkStyles.buttonText:styles.buttonText}>+</Text>
                 </TouchableOpacity>
               </Neomorph>
             </View>
@@ -425,72 +476,72 @@ class App extends React.Component {
                   <View >
                       <Neomorph
                       lightShadowColor='white'
-                      darkShadowColor='#181818'
-                      style={ styles.calculatorTopShadow}>
+                      darkShadowColor='black'
+                      style={darkTheme? darkStyles.calculatorTopShadow: styles.calculatorTopShadow}>
                         <TouchableOpacity
-                        style={styles.calculatorButtonsLast}
+                        style={darkTheme? darkStyles.calculatorButtonsLast:styles.calculatorButtonsLast}
                         onPress={() => this.addSymbol("1")}
                         >
-                          <Text style={styles.buttonText}>1</Text>
+                          <Text style={darkTheme?darkStyles.buttonText:styles.buttonText}>1</Text>
                         </TouchableOpacity>
                       </Neomorph>
                       <Neomorph
                       lightShadowColor='white'
-                      darkShadowColor='#181818'
-                      style={ styles.calculatorShadow}>
+                      darkShadowColor='black'
+                      style={darkTheme? darkStyles.calculatorShadow: styles.calculatorShadow}>
                         <TouchableOpacity
-                        style={styles.calculatorButtons}
+                        style={darkTheme? darkStyles.calculatorButtons:styles.calculatorButtons}
                         onPress={() => this.addSymbol(`.`)}
                         >
-                          <Text style={styles.buttonText}>.</Text>
+                          <Text style={darkTheme?darkStyles.buttonText:styles.buttonText}>.</Text>
                         </TouchableOpacity>
                       </Neomorph>
                   </View>    
                   <View>    
                       <Neomorph
                       lightShadowColor='white'
-                      darkShadowColor='#181818'
-                      style={ styles.calculatorTopShadow}>
+                      darkShadowColor='black'
+                      style={darkTheme? darkStyles.calculatorTopShadow: styles.calculatorTopShadow}>
                         <TouchableOpacity
-                        style={styles.calculatorButtonsLast}
+                        style={darkTheme? darkStyles.calculatorButtonsLast:styles.calculatorButtonsLast}
                         onPress={() => this.addSymbol("2")}
                         >          
-                          <Text style={styles.buttonText}>2</Text>
+                          <Text style={darkTheme?darkStyles.buttonText:styles.buttonText}>2</Text>
                         </TouchableOpacity>
                       </Neomorph>
                       <Neomorph
                       lightShadowColor='white'
-                      darkShadowColor='#181818'
-                      style={ styles.calculatorShadow}>
+                      darkShadowColor='black'
+                      style={darkTheme? darkStyles.calculatorShadow: styles.calculatorShadow}>
                         <TouchableOpacity
-                        style={styles.calculatorButtons}
+                        style={darkTheme? darkStyles.calculatorButtons:styles.calculatorButtons}
                         onPress={() => this.addSymbol("0")}
                         >
-                          <Text style={styles.buttonText}>0</Text>
+                          <Text style={darkTheme?darkStyles.buttonText:styles.buttonText}>0</Text>
                         </TouchableOpacity>
                       </Neomorph>
                   </View>
                   <View>
                       <Neomorph
                       lightShadowColor='white'
-                      darkShadowColor='#181818'
-                      style={ styles.calculatorTopShadow}>
+                      darkShadowColor='black'
+                      style={darkTheme? darkStyles.calculatorTopShadow: styles.calculatorTopShadow}>
                         <TouchableOpacity
-                        style={styles.calculatorButtonsLast}
+                        style={darkTheme? darkStyles.calculatorButtonsLast:styles.calculatorButtonsLast}
                         onPress={() => this.addSymbol("3")}
                         >
-                          <Text style={styles.buttonText}>3</Text>
+                          <Text style={darkTheme?darkStyles.buttonText:styles.buttonText}>3</Text>
                         </TouchableOpacity>
                       </Neomorph>
                       <Neomorph
                       lightShadowColor='white'
-                      darkShadowColor='#181818'
-                      style={ styles.calculatorShadow}>
+                      darkShadowColor='black'
+                      style={darkTheme? darkStyles.calculatorShadow: styles.calculatorShadow}>
                         <TouchableOpacity
-                        style={styles.calculatorButtons}
+                        style={darkTheme? darkStyles.calculatorButtons:styles.calculatorButtons}
                         onPress={this.clearLastSymbol}
                         >
-                          <Icon name='backspace'/>
+                          <Icon name='backspace' color={darkTheme?'rgba(248, 248, 250,0.5)':'black'}/>
                         </TouchableOpacity>
                       </Neomorph>
                   </View>
@@ -499,7 +550,7 @@ class App extends React.Component {
                     <Neomorph
                     lightShadowColor='white'
                     darkShadowColor='#9b2cf2'
-                    style={ styles.calculateShadow}>
+                    style={darkTheme?darkStyles.calculateShadow: styles.calculateShadow}>
                       <LinearGradient colors={['#9b2cf2','#b468f0','#c07df4']} style={styles.calculateButton}>
                         <TouchableOpacity
                         style={styles.calculateButton}
@@ -519,7 +570,7 @@ class App extends React.Component {
   };
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create( {
 
   container: {
     flex: 1,
@@ -527,6 +578,7 @@ const styles = StyleSheet.create({
     padding:20,
     elevation:1
   },
+
   switchContainer: {
     flexDirection: 'row',
     alignItems:'center'
@@ -702,5 +754,108 @@ const styles = StyleSheet.create({
 
 
 });
+
+
+const darkStyles = StyleSheet.create ({
+  container: {
+    flex: 1,
+    backgroundColor: '#3c3c3c',
+    padding:20,
+    elevation:1
+  },
+  optionsButton: {
+    fontSize: 35,
+    fontWeight: 'bold',
+    color: '#ececec'
+  },
+  calculatorButtons: {
+    width:75,
+    height:65,
+    justifyContent:'center',
+    alignItems: 'center',
+    backgroundColor: '#3c3c3c',
+    borderRadius: 32,
+
+    
+  },
+  calculatorShadow:  {
+    shadowRadius: 2,
+    borderRadius: 32,
+    backgroundColor: '#3c3c3c',
+    width:75,
+    height:65,
+    shadowOpacity: 0.2,
+  },
+  calculateShadow:                 {
+    shadowRadius: 4,
+    borderRadius: 32,
+    backgroundColor: '#a640f6',
+    width:75,
+    height:134,
+    shadowOpacity: 0.2
+  },
+  calculatorButtonsLast: {
+    width:75,
+    height:65,
+    justifyContent:'center',
+    alignItems: 'center',
+    backgroundColor: '#3c3c3c',
+    borderRadius: 32,
+  },
+  calculatorTopShadow:                 {
+    shadowRadius: 2,
+    borderRadius: 32,
+    backgroundColor: '#3c3c3c',
+    width:75,
+    height:65,
+    shadowOpacity: 0.2,
+    marginBottom: 4
+  },
+  buttonText: {
+    color:'rgba(248, 248, 250,0.5)',
+    fontSize: 20,
+    fontWeight: 'bold'
+  },
+  operationsButtons: {
+    width:75,
+    height:65,
+    justifyContent:'center',
+    alignItems: 'center',
+    backgroundColor: '#631c9b',
+    borderRadius: 32,
+    
+  },  
+  operationsShadow:                 {
+    shadowRadius: 2,
+    borderRadius: 32,
+    backgroundColor: '#360f54',
+    width:75,
+    height:65,
+    shadowOpacity: 0.2
+  },
+  functionButtons: {
+    width:75,
+    height:65,
+    justifyContent:'center',
+    alignItems: 'center',
+    backgroundColor: '#95690e',
+    borderRadius: 32,
+    
+  },
+  functionsShadow: {
+    shadowRadius: 1,
+    borderRadius: 32,
+    backgroundColor: '#7c570b',
+    width:75,
+    height:65,
+    shadowOpacity: 0.2
+  
+  },
+  displayText: {
+    fontSize: 30,
+    textAlign: "right",
+    color:'rgba(255,255,255,0.7)'
+  },
+})
 
 export default App;
